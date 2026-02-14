@@ -1,3 +1,4 @@
+// src/pages/ReunioesPage.js
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../components/Layout";
 import {
@@ -6,6 +7,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 
+// ─── Icons ───────────────────────────────────────────────────
 const IconPlus = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
     <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -63,6 +65,7 @@ const IconTrash = () => (
   </svg>
 );
 
+// ─── Helpers ─────────────────────────────────────────────────
 function formatDateBR(iso) {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
@@ -78,27 +81,28 @@ function statusLabel(s) {
   return { label: "Justificado", color: "#f59e0b", bg: "rgba(245,158,11,0.1)", Icon: IconWarning };
 }
 
+// ─── Main Component ───────────────────────────────────────────
 export default function ReunioesPage() {
-  const [view, setView] = useState("list"); 
+  const [view, setView] = useState("list"); // list | chamada
   const [meetings, setMeetings] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState(null);
-  const [attendance, setAttendance] = useState({}); 
+  const [attendance, setAttendance] = useState({}); // { membroId: { status, observacao } }
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState(""); 
+  const [modalType, setModalType] = useState(""); // nova | sem-reuniao
   const [form, setForm] = useState({ data: "", descricao: "", motivo: "" });
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // definir membros
+  // Fetch members
   const fetchMembers = useCallback(async () => {
     const q = query(collection(db, "members"), where("status", "==", "ativo"), orderBy("nome"));
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }, []);
 
-  // definir reunioes
+  // Fetch meetings
   const fetchMeetings = useCallback(async () => {
     const q = query(collection(db, "meetings"), orderBy("data", "desc"));
     const snap = await getDocs(q);
@@ -115,10 +119,10 @@ export default function ReunioesPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // abrir tabela de presenca
+  // Open attendance sheet
   const openChamada = async (meeting) => {
     setSelectedMeeting(meeting);
-    // load
+    // Load existing attendance
     const q = query(
       collection(db, "attendance"),
       where("referenciaId", "==", meeting.id),
@@ -130,7 +134,7 @@ export default function ReunioesPage() {
       const data = d.data();
       existing[data.membroId] = { status: data.status, observacao: data.observacao || "", docId: d.id };
     });
-    // presenca é o normal
+    // Default to "presente" for members without record
     const allMembers = await fetchMembers();
     const full = {};
     allMembers.forEach((m) => {
@@ -141,7 +145,7 @@ export default function ReunioesPage() {
     setView("chamada");
   };
 
-  // salva presenca
+  // Save attendance
   const saveChamada = async () => {
     setSaving(true);
     try {
@@ -157,7 +161,7 @@ export default function ReunioesPage() {
           atualizadoEm: new Date().toISOString(),
         });
       }
-      // att reuniao p status realizada
+      // Update meeting status to "realizada"
       await updateDoc(doc(db, "meetings", selectedMeeting.id), { status: "realizada" });
       await loadAll();
       setView("list");
@@ -167,7 +171,7 @@ export default function ReunioesPage() {
     setSaving(false);
   };
 
-  // cria reuniao
+  // Create meeting
   const handleCreate = async () => {
     if (!form.data) return;
     setSaving(true);
@@ -196,7 +200,7 @@ export default function ReunioesPage() {
     setSaving(false);
   };
 
-  // deleta reuniao
+  // Delete meeting
   const handleDelete = async (id) => {
     try {
       await deleteDoc(doc(db, "meetings", id));
@@ -205,7 +209,7 @@ export default function ReunioesPage() {
     } catch (e) { console.error(e); }
   };
 
-  // att presenca de um membro
+  // Update attendance for one member
   const setMemberStatus = (memberId, field, value) => {
     setAttendance((prev) => ({
       ...prev,
@@ -213,7 +217,7 @@ export default function ReunioesPage() {
     }));
   };
 
-  
+  // ─── Chamada View ─────────────────────────────────────────
   if (view === "chamada") {
     const presentes = Object.values(attendance).filter((a) => a.status === "presente").length;
     const total = members.length;
@@ -247,7 +251,7 @@ export default function ReunioesPage() {
               </button>
             </div>
 
-            {/* acoes */}
+            {/* Quick actions */}
             <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
               <button
                 style={styles.quickBtn}
@@ -271,7 +275,7 @@ export default function ReunioesPage() {
               </button>
             </div>
 
-            {/* tabela presenca*/}
+            {/* Attendance table */}
             <div style={styles.attTable}>
               <div style={styles.attHeader}>
                 <span style={{ flex: 2 }}>Membro</span>
@@ -280,7 +284,6 @@ export default function ReunioesPage() {
               </div>
               {members.map((member) => {
                 const att = attendance[member.id] || { status: "presente", observacao: "" };
-                const s = statusLabel(att.status);
                 return (
                   <div key={member.id} style={styles.attRow}>
                     <div style={{ flex: 2 }}>
@@ -333,7 +336,7 @@ export default function ReunioesPage() {
     );
   }
 
-  
+  // ─── List View ────────────────────────────────────────────
   return (
     <Layout>
       <div style={styles.page}>
@@ -429,7 +432,7 @@ export default function ReunioesPage() {
         )}
       </div>
 
-      {/* reuniao ou não reunião eis a questão */}
+      {/* Modal: Nova reunião / Sem reunião */}
       {modalOpen && (
         <div style={styles.overlay} onClick={() => setModalOpen(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -489,7 +492,7 @@ export default function ReunioesPage() {
         </div>
       )}
 
-      {/* confirma delete */}
+      {/* Modal: Delete confirm */}
       {deleteConfirm && (
         <div style={styles.overlay} onClick={() => setDeleteConfirm(null)}>
           <div style={{ ...styles.modal, maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
