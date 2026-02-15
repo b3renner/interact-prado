@@ -167,7 +167,7 @@ export default function DashboardPage() {
                 Presente
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 12, height: 12, borderRadius: 3, background: "#D4AF37", display: "inline-block" }} />
+                <span style={{ width: 12, height: 12, borderRadius: 3, background: "#6B8CAE", display: "inline-block" }} />
                 Justificado
               </span>
             </div>
@@ -198,7 +198,7 @@ export default function DashboardPage() {
                     );
                   }}
                 />
-                <Bar dataKey="justificado" stackId="a" fill="#D4AF37" radius={[6,6,0,0]} name="Justificado" />
+                <Bar dataKey="justificado" stackId="a" fill="#6B8CAE" radius={[6,6,0,0]} name="Justificado" />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -232,10 +232,10 @@ function CustomTooltip({ active, payload, label }) {
         {justificado > 0 && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 2, background: "#D4AF37", display: "inline-block" }} />
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: "#6B8CAE", display: "inline-block" }} />
               <span style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>Justificado</span>
             </div>
-            <span style={{ fontWeight: 700, fontSize: 13, color: "#D4AF37" }}>{justificado}%</span>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "#6B8CAE" }}>{justificado}%</span>
           </div>
         )}
         {total > 0 && (
