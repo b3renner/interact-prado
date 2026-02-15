@@ -55,16 +55,25 @@ export default function DashboardPage() {
         const totalEvents = events.length;
         const totalSessions = totalReunions + totalEvents;
 
-        // Per-member attendance
+        // Per-member attendance — separa presente e justificado
         let totalPresPercent = 0;
         const chart = members.map((m) => {
+          const sessions = [...meetings, ...events];
           const memberAtt = attendance.filter(
-            (a) => a.membroId === m.id && a.status === "presente" &&
-              [...meetings, ...events].some((s) => s.id === a.referenciaId)
+            (a) => a.membroId === m.id && sessions.some((s) => s.id === a.referenciaId)
           );
-          const percent = totalSessions > 0 ? Math.round((memberAtt.length / totalSessions) * 100) : 0;
-          totalPresPercent += percent;
-          return { nome: m.nome.split(" ")[0], presenca: percent };
+          const presentes   = memberAtt.filter((a) => a.status === "presente").length;
+          const justificados = memberAtt.filter((a) => a.status === "justificado").length;
+
+          const pctPresente    = totalSessions > 0 ? Math.round((presentes    / totalSessions) * 100) : 0;
+          const pctJustificado = totalSessions > 0 ? Math.round((justificados / totalSessions) * 100) : 0;
+
+          totalPresPercent += pctPresente + pctJustificado; // conta justificado como "não ausente" na média
+          return {
+            nome: m.nome.split(" ")[0],
+            presenca: pctPresente,
+            justificado: pctJustificado,
+          };
         });
 
         const media = members.length > 0 ? Math.round(totalPresPercent / members.length) : 0;
@@ -150,7 +159,19 @@ export default function DashboardPage() {
 
         {/* Bar chart */}
         <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Presença por Membro</h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+            <h3 style={{ ...styles.cardTitle, margin: 0 }}>Presença por Membro</h3>
+            <div style={{ display: "flex", gap: 16, fontSize: 12, color: "rgba(0,0,0,0.5)" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 12, height: 12, borderRadius: 3, background: "#0f2044", display: "inline-block" }} />
+                Presente
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 12, height: 12, borderRadius: 3, background: "#D4AF37", display: "inline-block" }} />
+                Justificado
+              </span>
+            </div>
+          </div>
           {loading ? (
             <div style={styles.chartPlaceholder}><div style={styles.spinner} /></div>
           ) : chartData.length === 0 ? (
@@ -163,11 +184,21 @@ export default function DashboardPage() {
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
                 <XAxis dataKey="nome" tick={{ fontSize: 12, fill: "rgba(0,0,0,0.5)" }} angle={-35} textAnchor="end" />
                 <YAxis tick={{ fontSize: 12, fill: "rgba(0,0,0,0.5)" }} domain={[0, 100]} />
-                <Tooltip
-                  formatter={(v) => [`${v}%`, "Presença"]}
-                  contentStyle={{ borderRadius: 8, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,0.1)" }}
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="presenca" stackId="a" fill="#0f2044" name="Presente"
+                  shape={(props) => {
+                    const { x, y, width, height, index } = props;
+                    const hasJustificado = chartData[index]?.justificado > 0;
+                    const r = hasJustificado ? 0 : 6;
+                    return (
+                      <path
+                        d={`M${x+r},${y} h${width-2*r} a${r},${r} 0 0 1 ${r},${r} v${height-r} h${-width} v${-(height-r)} a${r},${r} 0 0 1 ${r},${-r}z`}
+                        fill="#0f2044"
+                      />
+                    );
+                  }}
                 />
-                <Bar dataKey="presenca" fill="#0f2044" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="justificado" stackId="a" fill="#D4AF37" radius={[6,6,0,0]} name="Justificado" />
               </BarChart>
             </ResponsiveContainer>
           )}
@@ -175,6 +206,46 @@ export default function DashboardPage() {
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </Layout>
+  );
+}
+
+function CustomTooltip({ active, payload, label }) {
+  if (!active || !payload || !payload.length) return null;
+  const presenca    = payload.find((p) => p.dataKey === "presenca")?.value || 0;
+  const justificado = payload.find((p) => p.dataKey === "justificado")?.value || 0;
+  const total = presenca + justificado;
+  return (
+    <div style={{
+      background: "#fff", borderRadius: 10, padding: "12px 16px",
+      boxShadow: "0 4px 20px rgba(0,0,0,0.12)", border: "1px solid rgba(0,0,0,0.06)",
+      fontFamily: "'DM Sans', sans-serif", minWidth: 150,
+    }}>
+      <p style={{ fontWeight: 700, fontSize: 14, color: "#0f2044", margin: "0 0 10px 0" }}>{label}</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: "#0f2044", display: "inline-block" }} />
+            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>Presente</span>
+          </div>
+          <span style={{ fontWeight: 700, fontSize: 13, color: "#0f2044" }}>{presenca}%</span>
+        </div>
+        {justificado > 0 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: "#D4AF37", display: "inline-block" }} />
+              <span style={{ fontSize: 12, color: "rgba(0,0,0,0.55)" }}>Justificado</span>
+            </div>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "#D4AF37" }}>{justificado}%</span>
+          </div>
+        )}
+        {total > 0 && (
+          <div style={{ borderTop: "1px solid rgba(0,0,0,0.07)", marginTop: 4, paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
+            <span style={{ fontSize: 12, color: "rgba(0,0,0,0.4)" }}>Total efetivo</span>
+            <span style={{ fontWeight: 700, fontSize: 13, color: "#22c55e" }}>{total}%</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
