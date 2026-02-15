@@ -1,3 +1,4 @@
+// src/pages/MembrosPage.js
 import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import {
@@ -20,7 +21,8 @@ const CARGOS = [
 
 const LINGUAS_BASE = ["Português", "Inglês", "Espanhol", "Francês", "Alemão", "Italiano", "Outro"];
 const NIVEIS = ["A1", "A2", "B1", "B2", "C1", "C2", "Nativo"];
-//línguas no forms
+
+// linguas no form: [{ lingua: "Inglês", nivel: "B2" }, { lingua: "Outro", nivel: "A1", outro: "Mandarim" }]
 const EMPTY_FORM = {
   nome: "",
   aniversario: "",
@@ -33,9 +35,10 @@ const EMPTY_FORM = {
   status: "ativo",
 };
 
+// Formata lista de línguas para exibição na tabela
 function formatLinguas(linguas) {
   if (!linguas || linguas.length === 0) return "—";
-
+  // suporta formato antigo (array de strings) e novo (array de objetos)
   return linguas.map((l) => {
     if (typeof l === "string") return l;
     const nome = l.lingua === "Outro" && l.outro ? l.outro : l.lingua;
@@ -53,7 +56,8 @@ export default function MembrosPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [search, setSearch] = useState("");
   const [birthdayModal, setBirthdayModal] = useState(false);
-// codigo p calcular semana
+
+  // Calcula aniversariantes da semana atual (dom→sáb)
   const aniversariantesSemana = React.useMemo(() => {
     const hoje = new Date();
     const diaSemana = hoje.getDay();
@@ -141,6 +145,7 @@ export default function MembrosPage() {
     }
   };
 
+  // Adiciona língua se ainda não estiver na lista
   const addLingua = (lingua) => {
     const jaExiste = form.linguas.some((l) =>
       (typeof l === "string" ? l : l.lingua) === lingua
@@ -152,6 +157,7 @@ export default function MembrosPage() {
     }));
   };
 
+  // Remove língua pelo índice
   const removeLingua = (idx) => {
     setForm((f) => ({
       ...f,
@@ -159,6 +165,7 @@ export default function MembrosPage() {
     }));
   };
 
+  // Atualiza campo de uma língua específica
   const updateLingua = (idx, field, value) => {
     setForm((f) => {
       const updated = [...f.linguas];
@@ -167,7 +174,7 @@ export default function MembrosPage() {
     });
   };
 
- 
+  // Normaliza linguas antigas (strings) para objetos
   const linguasNormalizadas = form.linguas.map((l) =>
     typeof l === "string" ? { lingua: l, nivel: "B1", outro: "" } : l
   );
@@ -179,14 +186,14 @@ export default function MembrosPage() {
 
   return (
     <Layout>
-      <div style={styles.page}>
+      <div style={styles.page} className="rp-page">
         {/* header */}
-        <div style={styles.pageHeader}>
+        <div style={styles.pageHeader} className="rp-header">
           <div>
             <h1 style={styles.pageTitle}>Membros</h1>
             <p style={styles.pageSubtitle}>{membros.length} integrante{membros.length !== 1 ? "s" : ""} cadastrado{membros.length !== 1 ? "s" : ""}</p>
           </div>
-          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }} className="rp-header-actions">
             <div style={styles.searchWrapper}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="2" style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)" }}>
                 <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -233,26 +240,33 @@ export default function MembrosPage() {
               <p style={{ color: "rgba(0,0,0,0.3)", marginTop: 12 }}>Nenhum membro encontrado</p>
             </div>
           ) : (
+            <div className="rp-table-wrap">
             <table style={styles.table}>
               <thead>
                 <tr>
-                  {["Nome", "Aniversário", "Contato", "Responsável", "Línguas", "Escola", "Cargo", "Status", "Ações"].map((h) => (
-                    <th key={h} style={styles.th}>{h}</th>
-                  ))}
+                  <th style={styles.th}>Nome</th>
+                  <th style={styles.th} className="rp-col-hide">Aniversário</th>
+                  <th style={styles.th} className="rp-col-hide">Contato</th>
+                  <th style={styles.th} className="rp-col-hide">Responsável</th>
+                  <th style={styles.th} className="rp-col-hide">Línguas</th>
+                  <th style={styles.th} className="rp-col-hide">Escola</th>
+                  <th style={styles.th}>Cargo</th>
+                  <th style={styles.th}>Status</th>
+                  <th style={styles.th}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((m, i) => (
                   <tr key={m.id} style={{ ...styles.tr, background: i % 2 === 0 ? "#fff" : "#fafbff" }}>
                     <td style={{ ...styles.td, fontWeight: 600, color: "#0f2044" }}>{m.nome}</td>
-                    <td style={styles.td}>{m.aniversario ? formatDate(m.aniversario) : "—"}</td>
-                    <td style={styles.td}>{m.contato || "—"}</td>
-                    <td style={styles.td}>
+                    <td style={styles.td} className="rp-col-hide">{m.aniversario ? formatDate(m.aniversario) : "—"}</td>
+                    <td style={styles.td} className="rp-col-hide">{m.contato || "—"}</td>
+                    <td style={styles.td} className="rp-col-hide">
                       <div style={{ fontSize: 13 }}>{m.nomeResponsavel || "—"}</div>
                       {m.contatoResponsavel && <div style={{ fontSize: 11, color: "rgba(0,0,0,0.4)" }}>{m.contatoResponsavel}</div>}
                     </td>
-                    <td style={styles.td}>{formatLinguas(m.linguas)}</td>
-                    <td style={styles.td}>{m.escola || "—"}</td>
+                    <td style={styles.td} className="rp-col-hide">{formatLinguas(m.linguas)}</td>
+                    <td style={styles.td} className="rp-col-hide">{m.escola || "—"}</td>
                     <td style={styles.td}>
                       <span style={styles.badge}>{m.cargo || "Membro"}</span>
                     </td>
@@ -283,11 +297,12 @@ export default function MembrosPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>
 
-      {/* editar ou criar */}
+      {/* Modal: editar ou criar */}
       {modalOpen && (
         <div style={styles.overlay} onClick={() => setModalOpen(false)}>
           <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -301,7 +316,7 @@ export default function MembrosPage() {
             </div>
 
             <div style={styles.modalBody}>
-              <div style={styles.formGrid}>
+              <div style={styles.formGrid} className="rp-form-grid">
                 <FormField label="Nome completo *">
                   <input style={styles.formInput} value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} placeholder="Nome do membro" />
                 </FormField>
@@ -333,9 +348,9 @@ export default function MembrosPage() {
                 </FormField>
               </div>
 
-              {/* línguas */}
+              {/* Línguas */}
               <FormField label="Línguas faladas">
-                {/* add língua */}
+                {/* Botões para adicionar língua */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 4, marginBottom: linguasNormalizadas.length > 0 ? 16 : 0 }}>
                   {LINGUAS_BASE.map((l) => {
                     const jaAdicionada = linguasNormalizadas.some((x) => x.lingua === l);
@@ -363,12 +378,12 @@ export default function MembrosPage() {
                   })}
                 </div>
 
-                {/* língua + nível + remover" */}
+                {/* Lista de línguas adicionadas com nível e campo "outro" */}
                 {linguasNormalizadas.length > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                     {linguasNormalizadas.map((l, idx) => (
                       <div key={idx} style={styles.linguaRow}>
-                        {/* nome língua */}
+                        {/* Nome da língua */}
                         <div style={styles.linguaNome}>
                           {l.lingua === "Outro" ? (
                             <input
@@ -382,7 +397,7 @@ export default function MembrosPage() {
                           )}
                         </div>
 
-                        {/* nível */}
+                        {/* Seletor de nível */}
                         <div style={styles.nivelSelector}>
                           {NIVEIS.map((n) => (
                             <button
@@ -408,7 +423,7 @@ export default function MembrosPage() {
                           ))}
                         </div>
 
-                        {/* remover */}
+                        {/* Botão remover */}
                         <button
                           type="button"
                           onClick={() => removeLingua(idx)}
@@ -435,7 +450,7 @@ export default function MembrosPage() {
         </div>
       )}
 
-      {/* cai fora confirmada */}
+      {/* Modal: confirmar exclusão */}
       {deleteConfirm && (
         <div style={styles.overlay} onClick={() => setDeleteConfirm(null)}>
           <div style={{ ...styles.modal, maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
@@ -462,7 +477,7 @@ export default function MembrosPage() {
         </div>
       )}
 
-      {/* aniversariantes da smn */}
+      {/* Modal: Aniversariantes da semana */}
       {birthdayModal && (
         <div style={styles.overlay} onClick={() => setBirthdayModal(false)}>
           <div style={{ ...styles.modal, maxWidth: 460 }} onClick={(e) => e.stopPropagation()}>
@@ -477,7 +492,7 @@ export default function MembrosPage() {
 
             <div style={{ padding: "32px 28px", textAlign: "center" }}>
               {aniversariantesSemana.length === 0 ? (
-                /* s/ aniversario */
+                /* Sem aniversariantes */
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
                   <div style={{
                     width: 80, height: 80, borderRadius: "50%",
@@ -498,9 +513,9 @@ export default function MembrosPage() {
                   </p>
                 </div>
               ) : (
-                /* c/ aniversario */
+                /* Com aniversariantes */
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 24 }}>
-                  {/* comemoracao */}
+                  {/* Ícone comemorativo animado */}
                   <div style={{ position: "relative", display: "inline-flex" }}>
                     <div style={{
                       width: 96, height: 96, borderRadius: "50%",
@@ -515,7 +530,7 @@ export default function MembrosPage() {
                         <path d="M8 3 C8 3 7 1.5 8 1 C9 0.5 9.5 1.5 10 1 C10.5 0.5 11 0 12 0 C13 0 13.5 0.5 14 1 C14.5 1.5 15 0.5 16 1 C17 1.5 16 3 16 3" stroke="#D4AF37" strokeWidth="1.5" fill="none"/>
                       </svg>
                     </div>
-                    {/* droga de animacao de estrelinha */}
+                    {/* Estrelinhas decorativas */}
                     <div style={{ position: "absolute", top: -4, right: -4, animation: "twinkle 1.5s ease-in-out infinite" }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="#D4AF37">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -535,7 +550,10 @@ export default function MembrosPage() {
 
                   <div>
                     <p style={{ fontSize: 13, color: "rgba(0,0,0,0.4)", margin: "0 0 16px 0", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.8px", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                      
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                      </svg>
                       Celebrando essa semana
                     </p>
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -553,7 +571,7 @@ export default function MembrosPage() {
                             border: `1px solid ${isHoje ? "rgba(212,175,55,0.35)" : "rgba(0,0,0,0.06)"}`,
                             gap: 16,
                           }}>
-                           
+                            {/* Lado esquerdo: ícone + nome */}
                             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                               <div style={{
                                 width: 36, height: 36, borderRadius: "50%",
@@ -581,7 +599,8 @@ export default function MembrosPage() {
                                 )}
                               </div>
                             </div>
-      
+
+                            {/* Lado direito: círculo com data */}
                             <div style={{ flexShrink: 0 }}>
                               <div style={{
                                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",

@@ -1,3 +1,4 @@
+// src/pages/EventosPage.js
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../components/Layout";
 import {
@@ -6,6 +7,7 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 
+// ─── Icons ───────────────────────────────────────────────────
 const IconPlus = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
     <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -62,6 +64,7 @@ const IconTrash = () => (
   </svg>
 );
 
+// ─── Helpers ─────────────────────────────────────────────────
 function formatDateBR(iso) {
   if (!iso) return "";
   const [y, m, d] = iso.split("-");
@@ -77,8 +80,9 @@ function statusLabel(s) {
 
 const EMPTY_FORM = { nome: "", data: "", local: "", parcerias: "", descricao: "" };
 
+// ─── Main Component ───────────────────────────────────────────
 export default function EventosPage() {
-  const [view, setView] = useState("list"); 
+  const [view, setView] = useState("list"); // list | chamada | form
   const [events, setEvents] = useState([]);
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +115,7 @@ export default function EventosPage() {
 
   useEffect(() => { loadAll(); }, [loadAll]);
 
-  // abre chamada
+  // Open attendance for event
   const openChamada = async (event) => {
     setSelectedEvent(event);
     const q = query(
@@ -135,7 +139,7 @@ export default function EventosPage() {
     setView("chamada");
   };
 
-  // salva chamada
+  // Save attendance
   const saveChamada = async () => {
     setSaving(true);
     try {
@@ -157,7 +161,7 @@ export default function EventosPage() {
     setSaving(false);
   };
 
-  // cria ou edita evento
+  // Create / Edit event
   const handleSaveEvent = async () => {
     if (!form.nome || !form.data) return;
     setSaving(true);
@@ -208,10 +212,11 @@ export default function EventosPage() {
     }));
   };
 
+  // ─── Form View ────────────────────────────────────────────
   if (view === "form") {
     return (
       <Layout>
-        <div style={styles.page}>
+        <div style={styles.page} className="rp-page">
           <button onClick={() => { setView("list"); setForm(EMPTY_FORM); setEditingEvent(null); }} style={styles.backBtn}>
             <IconArrowLeft /> Voltar
           </button>
@@ -219,11 +224,11 @@ export default function EventosPage() {
             <h2 style={{ ...styles.cardTitle, marginBottom: 24 }}>
               {editingEvent ? "Editar Evento" : "Novo Evento"}
             </h2>
-            <div style={styles.formGrid}>
+            <div style={styles.formGrid} className="rp-form-grid">
               <div style={{ ...styles.fieldGroup, gridColumn: "1 / -1" }}>
                 <label style={styles.label}>Nome do Evento *</label>
                 <input
-                  placeholder="Ex: Acamparact, CODIC..."
+                  placeholder="Ex: Acamparact, Feira de Ciências..."
                   value={form.nome}
                   onChange={(e) => setForm({ ...form, nome: e.target.value })}
                   style={styles.formInput}
@@ -287,13 +292,14 @@ export default function EventosPage() {
     );
   }
 
+  // ─── Chamada View ─────────────────────────────────────────
   if (view === "chamada") {
     const presentes = Object.values(attendance).filter((a) => a.status === "presente").length;
     const total = members.length;
 
     return (
       <Layout>
-        <div style={styles.page}>
+        <div style={styles.page} className="rp-page">
           <button onClick={() => setView("list")} style={styles.backBtn}>
             <IconArrowLeft /> Voltar
           </button>
@@ -344,7 +350,7 @@ export default function EventosPage() {
               {members.map((member) => {
                 const att = attendance[member.id] || { status: "presente", observacao: "" };
                 return (
-                  <div key={member.id} style={styles.attRow}>
+                  <div key={member.id} style={styles.attRow} className="rp-att-row">
                     <div style={{ flex: 2 }}>
                       <div style={{ fontWeight: 600, fontSize: 14, color: "#0f2044" }}>{member.nome}</div>
                       {member.cargo && member.cargo !== "Membro" && (
@@ -393,10 +399,11 @@ export default function EventosPage() {
     );
   }
 
+  // ─── List View ────────────────────────────────────────────
   return (
     <Layout>
-      <div style={styles.page}>
-        <div style={styles.pageHeader}>
+      <div style={styles.page} className="rp-page">
+        <div style={styles.pageHeader} className="rp-header">
           <div>
             <h1 style={styles.pageTitle}>Eventos</h1>
             <p style={styles.pageSubtitle}>{events.length} evento(s) registrado(s)</p>
@@ -419,7 +426,7 @@ export default function EventosPage() {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {events.map((event) => (
-              <div key={event.id} style={styles.eventCard}>
+              <div key={event.id} style={styles.eventCard} className="rp-card-row">
                 <div style={styles.eventIconWrap}>
                   <IconStar />
                 </div>
@@ -459,7 +466,7 @@ export default function EventosPage() {
         )}
       </div>
 
-      {/* confirma delete */}
+      {/* Delete confirm */}
       {deleteConfirm && (
         <div style={styles.overlay} onClick={() => setDeleteConfirm(null)}>
           <div style={{ ...styles.modal, maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>

@@ -224,7 +224,7 @@ export default function ReunioesPage() {
 
     return (
       <Layout>
-        <div style={styles.page}>
+        <div style={styles.page} className="rp-page">
           <button onClick={() => setView("list")} style={styles.backBtn}>
             <IconArrowLeft /> Voltar
           </button>
@@ -285,7 +285,7 @@ export default function ReunioesPage() {
               {members.map((member) => {
                 const att = attendance[member.id] || { status: "presente", observacao: "" };
                 return (
-                  <div key={member.id} style={styles.attRow}>
+                  <div key={member.id} style={styles.attRow} className="rp-att-row">
                     <div style={{ flex: 2 }}>
                       <div style={{ fontWeight: 600, fontSize: 14, color: "#0f2044" }}>{member.nome}</div>
                       {member.cargo && member.cargo !== "Membro" && (
@@ -339,13 +339,13 @@ export default function ReunioesPage() {
   // ─── List View ────────────────────────────────────────────
   return (
     <Layout>
-      <div style={styles.page}>
-        <div style={styles.pageHeader}>
+      <div style={styles.page} className="rp-page">
+        <div style={styles.pageHeader} className="rp-header">
           <div>
             <h1 style={styles.pageTitle}>Reuniões</h1>
             <p style={styles.pageSubtitle}>{meetings.filter(m => m.tipo === "reuniao").length} reunião(ões) registrada(s)</p>
           </div>
-          <div style={{ display: "flex", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10 }} className="rp-header-actions">
             <button
               onClick={() => { setModalType("sem-reuniao"); setForm({ data: "", descricao: "", motivo: "" }); setModalOpen(true); }}
               style={styles.btnSecondary}
@@ -400,7 +400,7 @@ export default function ReunioesPage() {
                       </div>
                     </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }} className="rp-card-actions">
                     {!isCancelled && (
                       <span style={{
                         padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 700,

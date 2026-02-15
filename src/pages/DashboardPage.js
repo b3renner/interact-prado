@@ -1,3 +1,4 @@
+// src/pages/DashboardPage.js
 import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import {
@@ -24,11 +25,11 @@ export default function DashboardPage() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        // ajeitando os membros
+        // Fetch members
         const membersSnap = await getDocs(query(collection(db, "members"), where("status", "==", "ativo"), orderBy("nome")));
         const members = membersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-        // ajeitando as reunioes p mês
+        // Fetch meetings for selected month
         const meetingsSnap = await getDocs(collection(db, "meetings"));
         const meetings = meetingsSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -37,7 +38,7 @@ export default function DashboardPage() {
             return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear && m.tipo !== "sem-reuniao";
           });
 
-        // ajeitando eventos p mês
+        // Fetch events for selected month
         const eventsSnap = await getDocs(collection(db, "events"));
         const events = eventsSnap.docs
           .map((d) => ({ id: d.id, ...d.data() }))
@@ -46,7 +47,7 @@ export default function DashboardPage() {
             return d.getMonth() === selectedMonth && d.getFullYear() === selectedYear;
           });
 
-        // vendo presença
+        // Fetch attendance
         const attSnap = await getDocs(collection(db, "attendance"));
         const attendance = attSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -54,7 +55,7 @@ export default function DashboardPage() {
         const totalEvents = events.length;
         const totalSessions = totalReunions + totalEvents;
 
-        // presença de cad aum
+        // Per-member attendance
         let totalPresPercent = 0;
         const chart = members.map((m) => {
           const memberAtt = attendance.filter(
@@ -82,13 +83,13 @@ export default function DashboardPage() {
 
   return (
     <Layout>
-      <div style={styles.page}>
-        <div style={styles.pageHeader}>
+      <div style={styles.page} className="rp-page">
+        <div style={styles.pageHeader} className="rp-header">
           <div>
             <h1 style={styles.pageTitle}>Dashboard</h1>
             <p style={styles.pageSubtitle}>Visão geral do mês</p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8 }} className="rp-header-actions">
             <select
               style={styles.select}
               value={selectedMonth}
@@ -106,8 +107,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/*cards*/}
-        <div style={styles.statsRow}>
+        {/* Stats cards */}
+        <div style={styles.statsRow} className="rp-stats">
           <StatCard
             icon={
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0f2044" strokeWidth="1.8">
@@ -147,7 +148,7 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* grafico barra (q mão) */}
+        {/* Bar chart */}
         <div style={styles.card}>
           <h3 style={styles.cardTitle}>Presença por Membro</h3>
           {loading ? (
