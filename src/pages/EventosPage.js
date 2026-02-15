@@ -223,7 +223,7 @@ export default function EventosPage() {
               <div style={{ ...styles.fieldGroup, gridColumn: "1 / -1" }}>
                 <label style={styles.label}>Nome do Evento *</label>
                 <input
-                  placeholder="Ex: Acamparact, Feira de Ciências..."
+                  placeholder="Ex: Acamparact, CODIC..."
                   value={form.nome}
                   onChange={(e) => setForm({ ...form, nome: e.target.value })}
                   style={styles.formInput}
