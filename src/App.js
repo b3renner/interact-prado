@@ -1,3 +1,4 @@
+// src/App.js
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -7,17 +8,17 @@ import DashboardPage from "./pages/DashboardPage";
 import MembrosPage from "./pages/MembrosPage";
 import ReunioesPage from "./pages/ReunioesPage";
 import EventosPage from "./pages/EventosPage";
-import { FinancasPage } from "./pages/PlaceholderPages";
+import FinancasPage from "./pages/FinancasPage";
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* rota pública */}
+          {/* rota pública (login) */}
           <Route path="/login" element={<LoginPage />} />
 
-          {/* protege rotas, todas vão p login */}
+          {/* toas protegidas q precisam de login */}
           <Route
             path="/dashboard"
             element={
@@ -59,7 +60,7 @@ export default function App() {
             }
           />
 
-          {/* mais um redirecionamento p login */}
+          {/*redireciona rota p/dashboard*/}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
