@@ -10,15 +10,23 @@ const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","A
 const CATEGORIAS_RECEITA = ["Mensalidade", "Doação", "Evento", "Outros"];
 const CATEGORIAS_DESPESA = ["Evento", "Material", "Alimentação", "Transporte", "Outros"];
 
+// FIX 1: parse date string manually to avoid UTC timezone shift
+// new Date("2025-02-19") is treated as UTC midnight, which in UTC-3 becomes Feb 18
+const parseDateLocal = (dateStr) => {
+  if (!dateStr) return new Date();
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day);
+};
+
 // icones
 const IconArrowUp = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>);
 const IconArrowDown = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>);
 const IconDollar = () => (<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>);
 const IconTrash = () => (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>);
-const IconCheck = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>);
+const IconCheck = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>);
 
 export default function FinancasPage() {
-  const [view, setView] = useState("dashboard"); 
+  const [view, setView] = useState("dashboard");
 
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -29,42 +37,39 @@ export default function FinancasPage() {
   const [stats, setStats] = useState({ saldo: 0, receitas: 0, despesas: 0 });
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalType, setModalType] = useState(""); 
+  const [modalType, setModalType] = useState("");
 
-  const [form, setForm] = useState({ valor: "", descricao: "", categoria: "", data: "" });
+  const [form, setForm] = useState({ valor: "", descricao: "", categoria: "", outroDescricao: "", data: "" });
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  // FIX 3: track which cell is being toggled for optimistic UI
+  const [togglingPayment, setTogglingPayment] = useState(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      // finanças
       const fSnap = await getDocs(collection(db, "finances"));
       const allFinances = fSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setFinances(allFinances);
 
-      // membros
       const mSnap = await getDocs(query(collection(db, "members"), where("status", "==", "ativo")));
       const allMembers = mSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setMembers(allMembers);
 
-      // pagamentos
       const pSnap = await getDocs(collection(db, "memberPayments"));
       const allPayments = pSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setPayments(allPayments);
 
-      // config
       const settingsDoc = await getDoc(doc(db, "settings", "config"));
       if (settingsDoc.exists()) {
         setValorMensalidade(settingsDoc.data().valorMensalidade || 15);
       }
 
-      // estatísticas mês
       const thisMonthFinances = allFinances.filter((f) => f.mes === selectedMonth && f.ano === selectedYear);
       const receitas = thisMonthFinances.filter((f) => f.tipo === "receita").reduce((acc, f) => acc + f.valor, 0);
       const despesas = thisMonthFinances.filter((f) => f.tipo === "despesa").reduce((acc, f) => acc + f.valor, 0);
 
-      // saldo total
       const totalReceitas = allFinances.filter((f) => f.tipo === "receita").reduce((acc, f) => acc + f.valor, 0);
       const totalDespesas = allFinances.filter((f) => f.tipo === "despesa").reduce((acc, f) => acc + f.valor, 0);
       const saldo = totalReceitas - totalDespesas;
@@ -76,7 +81,6 @@ export default function FinancasPage() {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // abrir modal entrada/saída
   const openModal = (tipo) => {
     const hoje = new Date();
     setModalType(tipo);
@@ -84,22 +88,27 @@ export default function FinancasPage() {
       valor: "",
       descricao: "",
       categoria: tipo === "receita" ? CATEGORIAS_RECEITA[0] : CATEGORIAS_DESPESA[0],
+      outroDescricao: "",
       data: `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`,
     });
     setModalOpen(true);
   };
 
-  // salva transação
   const handleSaveTransaction = async () => {
     if (!form.valor || !form.data) return;
     setSaving(true);
     try {
       const [ano, mes] = form.data.split("-").map(Number);
+      // FIX 4: append custom description when categoria is "Outros"
+      const categoriaFinal = form.categoria === "Outros" && form.outroDescricao.trim()
+        ? `Outros — ${form.outroDescricao.trim()}`
+        : form.categoria;
+
       await addDoc(collection(db, "finances"), {
         tipo: modalType,
         valor: parseFloat(form.valor),
         descricao: form.descricao || (modalType === "receita" ? "Receita" : "Despesa"),
-        categoria: form.categoria,
+        categoria: categoriaFinal,
         data: form.data,
         mes: mes - 1,
         ano,
@@ -112,7 +121,6 @@ export default function FinancasPage() {
     setSaving(false);
   };
 
-  // deleta transacao
   const handleDelete = async (id) => {
     try {
       await deleteDoc(doc(db, "finances", id));
@@ -121,42 +129,61 @@ export default function FinancasPage() {
     } catch (e) { console.error(e); }
   };
 
-  // marca/desmarca pagamento mensalidade
+  // FIX 2: query Firestore directly to avoid stale local state causing duplicates
+  // FIX 3: optimistic local update so UI responds instantly, no flicker
   const togglePayment = async (membroId, mes, ano) => {
     const paymentId = `${membroId}_${mes}_${ano}`;
-    const existing = payments.find((p) => p.membroId === membroId && p.mes === mes && p.ano === ano);
+    const key = `${membroId}_${mes}_${ano}`;
+    setTogglingPayment(key);
 
     try {
-      if (existing) {
-        
-        await deleteDoc(doc(db, "memberPayments", paymentId));
-        
-        const financeEntry = finances.find((f) => f.origem === "mensalidade" && f.membroId === membroId && f.mes === mes && f.ano === ano);
+      const paymentRef = doc(db, "memberPayments", paymentId);
+      const paymentSnap = await getDoc(paymentRef);
+      const exists = paymentSnap.exists();
+
+      if (exists) {
+        // Optimistic removal before async ops
+        setPayments((prev) => prev.filter(
+          (p) => !(p.membroId === membroId && p.mes === mes && p.ano === ano)
+        ));
+        await deleteDoc(paymentRef);
+        const financeEntry = finances.find(
+          (f) => f.origem === "mensalidade" && f.membroId === membroId && f.mes === mes && f.ano === ano
+        );
         if (financeEntry) await deleteDoc(doc(db, "finances", financeEntry.id));
       } else {
-       
-        await setDoc(doc(db, "memberPayments", paymentId), {
+        // Optimistic addition before async ops
+        const newPayment = { id: paymentId, membroId, mes, ano, pago: true, dataPagamento: new Date().toISOString() };
+        setPayments((prev) => [...prev, newPayment]);
+
+        await setDoc(paymentRef, {
           membroId, mes, ano, pago: true, dataPagamento: new Date().toISOString(),
         });
-        
+
         const membro = members.find((m) => m.id === membroId);
+        // FIX 1: build today's date as a local string to avoid timezone shift
+        const hoje = new Date();
+        const dataHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
         await addDoc(collection(db, "finances"), {
           tipo: "receita",
           valor: valorMensalidade,
           descricao: `Mensalidade — ${membro?.nome || "Membro"}`,
           categoria: "Mensalidade",
-          data: new Date().toISOString().split("T")[0],
+          data: dataHoje,
           mes, ano,
           origem: "mensalidade",
           membroId,
           criadoEm: new Date().toISOString(),
         });
       }
+
+      // Refresh in background after UI already updated
       await fetchAll();
     } catch (e) { console.error(e); }
+
+    setTogglingPayment(null);
   };
 
-  // att mensalidade
   const updateValorMensalidade = async (novoValor) => {
     try {
       await setDoc(doc(db, "settings", "config"), { valorMensalidade: novoValor }, { merge: true });
@@ -172,7 +199,6 @@ export default function FinancasPage() {
     return (
       <Layout>
         <div style={styles.page} className="rp-page">
-          {/* header */}
           <div style={styles.pageHeader} className="rp-header">
             <div>
               <h1 style={styles.pageTitle}>Finanças</h1>
@@ -197,7 +223,6 @@ export default function FinancasPage() {
             </div>
           </div>
 
-          {/* dashboard */}
           <div style={styles.statsRow} className="rp-stats">
             <div style={styles.statCard}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -240,7 +265,6 @@ export default function FinancasPage() {
             </div>
           </div>
 
-          {/* histórico */}
           <div style={styles.card}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
               <h3 style={{ ...styles.cardTitle, margin: 0 }}>Histórico</h3>
@@ -263,7 +287,7 @@ export default function FinancasPage() {
               </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {monthFinances.sort((a, b) => new Date(b.data) - new Date(a.data)).map((f) => {
+                {monthFinances.sort((a, b) => parseDateLocal(b.data) - parseDateLocal(a.data)).map((f) => {
                   const isReceita = f.tipo === "receita";
                   return (
                     <div key={f.id} style={styles.transactionCard}>
@@ -280,7 +304,8 @@ export default function FinancasPage() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 14, color: "#0f2044" }}>{f.descricao}</div>
                           <div style={{ fontSize: 12, color: "rgba(0,0,0,0.4)", marginTop: 2 }}>
-                            {f.categoria} • {new Date(f.data).toLocaleDateString("pt-BR")}
+                            {/* FIX 1: parseDateLocal avoids UTC→local timezone date shift */}
+                            {f.categoria} • {parseDateLocal(f.data).toLocaleDateString("pt-BR")}
                           </div>
                         </div>
                       </div>
@@ -337,10 +362,27 @@ export default function FinancasPage() {
                 </div>
                 <div style={styles.fieldGroup}>
                   <label style={styles.label}>Categoria</label>
-                  <select value={form.categoria} onChange={(e) => setForm({ ...form, categoria: e.target.value })} style={styles.formInput}>
+                  <select
+                    value={form.categoria}
+                    onChange={(e) => setForm({ ...form, categoria: e.target.value, outroDescricao: "" })}
+                    style={styles.formInput}
+                  >
                     {(modalType === "receita" ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA).map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </div>
+                {/* FIX 4: conditional field when "Outros" is selected */}
+                {form.categoria === "Outros" && (
+                  <div style={{ ...styles.fieldGroup, animation: "fadeIn 0.15s ease" }}>
+                    <label style={styles.label}>Qual outro tipo?</label>
+                    <input
+                      placeholder="Descreva o tipo..."
+                      value={form.outroDescricao}
+                      onChange={(e) => setForm({ ...form, outroDescricao: e.target.value })}
+                      style={{ ...styles.formInput, borderColor: "#0f2044" }}
+                      autoFocus
+                    />
+                  </div>
+                )}
                 <div style={styles.fieldGroup}>
                   <label style={styles.label}>Data *</label>
                   <input type="date" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} style={styles.formInput} />
@@ -348,7 +390,11 @@ export default function FinancasPage() {
               </div>
               <div style={styles.modalFooter}>
                 <button onClick={() => setModalOpen(false)} style={styles.btnSecondarySmall}>Cancelar</button>
-                <button onClick={handleSaveTransaction} style={{ ...styles.btnPrimary, opacity: saving || !form.valor || !form.data ? 0.7 : 1 }} disabled={saving || !form.valor || !form.data}>
+                <button
+                  onClick={handleSaveTransaction}
+                  style={{ ...styles.btnPrimary, opacity: saving || !form.valor || !form.data ? 0.7 : 1 }}
+                  disabled={saving || !form.valor || !form.data}
+                >
                   {saving ? "Salvando..." : "Salvar"}
                 </button>
               </div>
@@ -383,12 +429,15 @@ export default function FinancasPage() {
           </div>
         )}
 
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        `}</style>
       </Layout>
     );
   }
 
-
+  // ─── Mensalidades view ────────────────────────────────────────
   return (
     <Layout>
       <div style={styles.page} className="rp-page">
@@ -404,7 +453,7 @@ export default function FinancasPage() {
             <button
               onClick={() => {
                 setModalType("config");
-                setForm({ valor: String(valorMensalidade) });
+                setForm({ valor: String(valorMensalidade), descricao: "", categoria: "", outroDescricao: "", data: "" });
                 setModalOpen(true);
               }}
               style={styles.btnSecondary}
@@ -420,44 +469,53 @@ export default function FinancasPage() {
 
         <div style={styles.card}>
           <div className="rp-table-wrap">
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Membro</th>
-                {MONTHS.map((m, i) => <th key={i} style={styles.th}>{m.substring(0, 3)}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {members.sort((a, b) => a.nome.localeCompare(b.nome)).map((m) => (
-                <tr key={m.id} style={styles.tr}>
-                  <td style={{ ...styles.td, fontWeight: 600, color: "#0f2044" }}>{m.nome}</td>
-                  {MONTHS.map((_, i) => {
-                    const pago = payments.some((p) => p.membroId === m.id && p.mes === i && p.ano === selectedYear);
-                    return (
-                      <td key={i} style={{ ...styles.td, textAlign: "center" }}>
-                        <button
-                          onClick={() => togglePayment(m.id, i, selectedYear)}
-                          style={{
-                            width: 28, height: 28, borderRadius: 6, border: "2px solid",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            cursor: "pointer", background: pago ? "#22c55e" : "transparent",
-                            borderColor: pago ? "#22c55e" : "#e5e7eb",
-                            transition: "all 0.15s",
-                          }}
-                        >
-                          {pago && <IconCheck />}
-                        </button>
-                      </td>
-                    );
-                  })}
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Membro</th>
+                  {MONTHS.map((m, i) => <th key={i} style={styles.th}>{m.substring(0, 3)}</th>)}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {members.sort((a, b) => a.nome.localeCompare(b.nome)).map((m) => (
+                  <tr key={m.id} style={styles.tr}>
+                    <td style={{ ...styles.td, fontWeight: 600, color: "#0f2044" }}>{m.nome}</td>
+                    {MONTHS.map((_, i) => {
+                      const pago = payments.some((p) => p.membroId === m.id && p.mes === i && p.ano === selectedYear);
+                      const isToggling = togglingPayment === `${m.id}_${i}_${selectedYear}`;
+                      return (
+                        <td key={i} style={{ ...styles.td, textAlign: "center" }}>
+                          {/* FIX 3: instant visual feedback via optimistic state, smooth CSS transition */}
+                          <button
+                            onClick={() => !isToggling && togglePayment(m.id, i, selectedYear)}
+                            style={{
+                              width: 28,
+                              height: 28,
+                              borderRadius: 6,
+                              border: "2px solid",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: isToggling ? "wait" : "pointer",
+                              background: pago ? "#22c55e" : "transparent",
+                              borderColor: pago ? "#22c55e" : "#d1d5db",
+                              transition: "background 0.2s ease, border-color 0.2s ease",
+                              opacity: isToggling ? 0.7 : 1,
+                            }}
+                          >
+                            {pago && <IconCheck />}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
-        {/*modal p configurar valor */}
+        {/* modal configurar valor */}
         {modalOpen && modalType === "config" && (
           <div style={styles.overlay} onClick={() => setModalOpen(false)}>
             <div style={{ ...styles.modal, maxWidth: 400 }} onClick={(e) => e.stopPropagation()}>
@@ -490,6 +548,8 @@ export default function FinancasPage() {
             </div>
           </div>
         )}
+
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     </Layout>
   );
