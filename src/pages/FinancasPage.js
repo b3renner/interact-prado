@@ -1,4 +1,3 @@
-// src/pages/FinancasPage.js
 import React, { useState, useEffect, useCallback } from "react";
 import Layout from "../components/Layout";
 import {
@@ -7,11 +6,10 @@ import {
 import { db } from "../firebase/config";
 
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const CATEGORIAS_RECEITA = ["Mensalidade", "Doação", "Evento", "Outros"];
-const CATEGORIAS_DESPESA = ["Evento", "Material", "Alimentação", "Transporte", "Outros"];
+const CATEGORIAS_RECEITA = ["Projeto", "Doação", "Evento", "Outro"];
+const CATEGORIAS_DESPESA = ["Evento", "Material", "Alimentação", "Transporte", "Outro"];
 
-// FIX 1: parse date string manually to avoid UTC timezone shift
-// new Date("2025-02-19") is treated as UTC midnight, which in UTC-3 becomes Feb 18
+
 const parseDateLocal = (dateStr) => {
   if (!dateStr) return new Date();
   const [year, month, day] = dateStr.split("-").map(Number);
@@ -43,7 +41,6 @@ export default function FinancasPage() {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // FIX 3: track which cell is being toggled for optimistic UI
   const [togglingPayment, setTogglingPayment] = useState(null);
 
   const fetchAll = useCallback(async () => {
@@ -99,7 +96,7 @@ export default function FinancasPage() {
     setSaving(true);
     try {
       const [ano, mes] = form.data.split("-").map(Number);
-      // FIX 4: append custom description when categoria is "Outros"
+      
       const categoriaFinal = form.categoria === "Outros" && form.outroDescricao.trim()
         ? `Outros — ${form.outroDescricao.trim()}`
         : form.categoria;
@@ -129,8 +126,6 @@ export default function FinancasPage() {
     } catch (e) { console.error(e); }
   };
 
-  // FIX 2: query Firestore directly to avoid stale local state causing duplicates
-  // FIX 3: optimistic local update so UI responds instantly, no flicker
   const togglePayment = async (membroId, mes, ano) => {
     const paymentId = `${membroId}_${mes}_${ano}`;
     const key = `${membroId}_${mes}_${ano}`;
@@ -161,7 +156,7 @@ export default function FinancasPage() {
         });
 
         const membro = members.find((m) => m.id === membroId);
-        // FIX 1: build today's date as a local string to avoid timezone shift
+      
         const hoje = new Date();
         const dataHoje = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
         await addDoc(collection(db, "finances"), {
@@ -177,7 +172,7 @@ export default function FinancasPage() {
         });
       }
 
-      // Refresh in background after UI already updated
+      
       await fetchAll();
     } catch (e) { console.error(e); }
 
@@ -304,7 +299,7 @@ export default function FinancasPage() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 700, fontSize: 14, color: "#0f2044" }}>{f.descricao}</div>
                           <div style={{ fontSize: 12, color: "rgba(0,0,0,0.4)", marginTop: 2 }}>
-                            {/* FIX 1: parseDateLocal avoids UTC→local timezone date shift */}
+                           
                             {f.categoria} • {parseDateLocal(f.data).toLocaleDateString("pt-BR")}
                           </div>
                         </div>
@@ -370,7 +365,7 @@ export default function FinancasPage() {
                     {(modalType === "receita" ? CATEGORIAS_RECEITA : CATEGORIAS_DESPESA).map((c) => <option key={c}>{c}</option>)}
                   </select>
                 </div>
-                {/* FIX 4: conditional field when "Outros" is selected */}
+              
                 {form.categoria === "Outros" && (
                   <div style={{ ...styles.fieldGroup, animation: "fadeIn 0.15s ease" }}>
                     <label style={styles.label}>Qual outro tipo?</label>
@@ -437,7 +432,7 @@ export default function FinancasPage() {
     );
   }
 
-  // ─── Mensalidades view ────────────────────────────────────────
+ 
   return (
     <Layout>
       <div style={styles.page} className="rp-page">
