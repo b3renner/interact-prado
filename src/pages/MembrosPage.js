@@ -17,6 +17,9 @@ const CARGOS = [
   "Secretaria",
   "Membro",
   "Exchange Student",
+  "Past President",
+  "Protocolo",
+  "Distrito",
 ];
 
 const LINGUAS_BASE = ["Português", "Inglês", "Espanhol", "Francês", "Alemão", "Italiano", "Outro"];
